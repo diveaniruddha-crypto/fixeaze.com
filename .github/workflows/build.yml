@@ -1,0 +1,47 @@
+name: Build Fixeaze site (download zip)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip the app
+        run: |
+          ls -la
+          COUNT=$(ls *.zip 2>/dev/null | wc -l)
+          if [ "$COUNT" -eq 0 ]; then echo "ERROR: no .zip file found in the repo root."; exit 1; fi
+          for z in *.zip; do echo "Unzipping $z"; unzip -q -o "$z"; done
+          if [ ! -d fixeaze_app ]; then echo "ERROR: the zip did not contain a folder called fixeaze_app"; ls -la; exit 1; fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Set up the web part
+        working-directory: fixeaze_app
+        run: |
+          flutter config --enable-web
+          flutter create . --platforms web
+
+      - name: Get packages
+        working-directory: fixeaze_app
+        run: flutter pub get
+
+      - name: Build the website
+        working-directory: fixeaze_app
+        run: flutter build web --release --base-href "/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fixeaze-website
+          path: fixeaze_app/build/web
+          retention-days: 14
